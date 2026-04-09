@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Güneş Enerjisi Hesaplayıcı / Solar Energy Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --sun: #F59E0B; --sun-light: #FEF3C7; --sun-dark: #92400E;
+    --teal: #0D9488; --teal-light: #CCFBF1; --teal-dark: #134E4A;
+    --bg: #0A0F0D; --surface: #111916; --surface2: #1A261F;
+    --border: rgba(255,255,255,0.07);
+    --text: #F0FDF4; --text-muted: #86EFAC; --text-dim: #4B7A5E;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(13,148,136,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(13,148,136,0.04) 1px, transparent 1px);
+    background-size: 48px 48px; pointer-events: none; z-index: 0;
+  }
+  .glow { position: fixed; width: 600px; height: 600px; border-radius: 50%; background: radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%); top: -200px; right: -100px; pointer-events: none; z-index: 0; }
+  .container { max-width: 900px; margin: 0 auto; padding: 0 2rem; position: relative; z-index: 1; }
+
+  /* NAV */
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 0; border-bottom: 1px solid var(--border); }
+  .nav-logo { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; color: var(--sun); letter-spacing: -0.01em; }
+  .nav-links { display: flex; align-items: center; gap: 1rem; }
+  .nav-link { font-size: 13px; color: var(--text-dim); background: none; border: none; cursor: pointer; padding: 6px 10px; border-radius: 8px; transition: color 0.2s; font-family: 'DM Sans', sans-serif; }
+  .nav-link:hover { color: var(--text-muted); background: var(--surface); }
+  .lang-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .lang-btn { font-size: 12px; font-weight: 500; font-family: 'Syne', sans-serif; padding: 6px 12px; border: none; cursor: pointer; transition: all 0.2s; color: var(--text-dim); background: transparent; }
+  .lang-btn.active { background: var(--sun); color: #1C0A00; }
+
+  /* SECTIONS */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* HEADER */
+  header { padding: 3rem 0 2rem; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); color: var(--sun); font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 14px; border-radius: 100px; margin-bottom: 1.5rem; }
+  .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--sun); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  h1 { font-family: 'Syne', sans-serif; font-size: clamp(2.2rem, 5vw, 3.8rem); font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 1rem; }
+  h1 span { color: var(--sun); }
+  .subtitle { font-size: 1rem; color: var(--text-muted); max-width: 520px; line-height: 1.6; font-weight: 300; }
+
+  /* MAIN GRID */
+  .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 2.5rem 0; }
+  @media (max-width: 680px) { .main-grid { grid-template-columns: 1fr; } }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 1.75rem; }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 1.5rem; }
+
+  /* FORM */
+  .field { margin-bottom: 1.25rem; }
+  label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 8px; font-weight: 400; }
+  .input-group { position: relative; }
+  input[type="number"], select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; padding: 11px 16px; outline: none; appearance: none; transition: border-color 0.2s; }
+  input[type="number"]:focus, select:focus { border-color: rgba(245,158,11,0.4); }
+  .input-unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-dim); pointer-events: none; }
+  .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
+  .slider-label { font-size: 13px; color: var(--text-muted); min-width: 120px; }
+  input[type="range"] { flex: 1; -webkit-appearance: none; height: 4px; background: var(--surface2); border-radius: 4px; outline: none; border: 1px solid var(--border); }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: var(--sun); border-radius: 50%; cursor: pointer; box-shadow: 0 0 12px rgba(245,158,11,0.5); }
+  .slider-val { font-size: 13px; font-weight: 500; color: var(--sun); min-width: 36px; text-align: right; }
+
+  /* RESULTS */
+  .results-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 1.75rem; grid-column: 1 / -1; }
+  .results-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-top: 1.25rem; }
+  @media (max-width: 680px) { .results-grid { grid-template-columns: repeat(2, 1fr); } }
+  .metric { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem 1rem; }
+  .metric-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .metric-value { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 2px; }
+  .metric-value.sun-color { color: var(--sun); }
+  .metric-value.teal-color { color: #2DD4BF; }
+  .metric-unit { font-size: 11px; color: var(--text-dim); }
+
+  /* PROGRESS */
+  .progress-section { margin-top: 1.5rem; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .progress-bar { height: 6px; background: var(--surface2); border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+  .progress-fill { height: 100%; border-radius: 6px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+  .fill-sun { background: var(--sun); }
+  .fill-teal { background: var(--teal); }
+  .fill-green { background: #22C55E; }
+
+  /* INFO NOTE */
+  .info-note { margin-top: 1.5rem; padding: 1rem 1.25rem; background: rgba(13,148,136,0.08); border: 1px solid rgba(13,148,136,0.2); border-radius: 12px; font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+  .info-note strong { color: #2DD4BF; font-weight: 500; }
+
+  /* SUN VIS */
+  .sun-vis { display: flex; align-items: center; justify-content: center; padding: 1.5rem 0 1rem; }
+  .sun-icon { width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle, #FDE68A 30%, #F59E0B 70%); box-shadow: 0 0 40px rgba(245,158,11,0.4), 0 0 80px rgba(245,158,11,0.15); animation: sunGlow 3s ease-in-out infinite; flex-shrink: 0; margin-right: 1rem; }
+  @keyframes sunGlow { 0%, 100% { box-shadow: 0 0 40px rgba(245,158,11,0.4), 0 0 80px rgba(245,158,11,0.15); } 50% { box-shadow: 0 0 60px rgba(245,158,11,0.6), 0 0 120px rgba(245,158,11,0.25); } }
+  .sun-text { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+  .sun-text strong { color: var(--sun); font-weight: 500; }
+
+  /* PDF BUTTON */
+  .pdf-btn { display: flex; align-items: center; gap: 8px; margin-top: 1.25rem; padding: 11px 20px; background: transparent; border: 1px solid var(--border); border-radius: 12px; color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.2s; width: fit-content; }
+  .pdf-btn:hover { border-color: rgba(245,158,11,0.4); color: var(--sun); background: rgba(245,158,11,0.05); }
+  .pdf-btn svg { width: 16px; height: 16px; }
+
+  /* MAP SECTION */
+  .map-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 1.75rem; margin-bottom: 1.5rem; }
+  .map-wrap { margin-top: 1.25rem; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); }
+  .map-legend { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* TURKEY SVG MAP */
+  .turkey-map { width: 100%; background: var(--surface2); border-radius: 14px; }
+  .city-dot { cursor: pointer; transition: r 0.2s; }
+  .city-dot:hover { r: 9; }
+  .city-label { font-family: 'DM Sans', sans-serif; font-size: 11px; fill: var(--text-muted); pointer-events: none; }
+  .city-sun { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 700; fill: var(--sun); pointer-events: none; }
+
+  /* ABOUT SECTION */
+  .about-hero { padding: 3rem 0 2rem; }
+  .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+  @media (max-width: 680px) { .about-grid { grid-template-columns: 1fr; } }
+  .about-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 1.75rem; }
+  .about-name { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 800; margin-bottom: 0.25rem; }
+  .about-role { color: var(--sun); font-size: 14px; margin-bottom: 1rem; }
+  .about-bio { font-size: 14px; color: var(--text-muted); line-height: 1.7; font-weight: 300; }
+  .skill-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1rem; }
+  .skill-tag { font-size: 11px; padding: 4px 12px; border-radius: 100px; background: rgba(13,148,136,0.1); border: 1px solid rgba(13,148,136,0.2); color: var(--teal-light); }
+  .project-item { padding: 1rem 0; border-bottom: 1px solid var(--border); }
+  .project-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .project-name { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .project-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+  .contact-link { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); padding: 10px 0; border-bottom: 1px solid var(--border); text-decoration: none; transition: color 0.2s; }
+  .contact-link:last-child { border-bottom: none; }
+  .contact-link:hover { color: var(--sun); }
+
+  /* FOOTER */
+  footer { text-align: center; padding: 2rem 0 3rem; font-size: 12px; color: var(--text-dim); }
+
+  /* ANIMATE */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .card, .results-card, .map-card, .about-card { animation: fadeUp 0.5s ease both; }
+  .card:nth-child(2) { animation-delay: 0.08s; }
+  .results-card, .map-card { animation-delay: 0.16s; }
+
+  .preset-btn { flex: 1; min-width: 80px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text-dim); font-family: 'DM Sans', sans-serif; font-size: 11px; line-height: 1.4; padding: 7px 6px; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .preset-btn span { display: block; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-top: 2px; }
+  .preset-btn:hover { border-color: rgba(245,158,11,0.3); color: var(--text-muted); }
+  .preset-btn.active { border-color: var(--sun); background: rgba(245,158,11,0.08); color: var(--sun); }
+  .preset-btn.active span { color: var(--sun); }
+
+  select option { background: #1A261F; }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<div class="container">
+
+  <!-- NAV -->
+  <nav>
+    <span class="nav-logo">☀ SolarCalc</span>
+    <div class="nav-links">
+      <button class="nav-link" onclick="showSection('calc')" id="nav-calc">Hesaplayıcı</button>
+      <button class="nav-link" onclick="showSection('map')" id="nav-map">Harita</button>
+      <button class="nav-link" onclick="showSection('about')" id="nav-about">Hakkımda</button>
+      <div class="lang-toggle">
+        <button class="lang-btn active" id="btn-tr" onclick="setLang('tr')">TR</button>
+        <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== CALCULATOR SECTION ===== -->
+  <div class="section active" id="sec-calc">
+    <header>
+      <div class="badge" data-tr="Elektrik Mühendisliği Projesi" data-en="Electrical Engineering Project">Elektrik Mühendisliği Projesi</div>
+      <h1 data-tr="Güneş Enerjisi<br><span>Hesaplayıcı</span>" data-en="Solar Energy<br><span>Calculator</span>">Güneş Enerjisi<br><span>Hesaplayıcı</span></h1>
+      <p class="subtitle" data-tr="Çatı alanınızı ve konumunuzu girerek yıllık üretim potansiyelinizi, maliyet tasarrufunuzu ve CO₂ azaltımını hesaplayın." data-en="Enter your roof area and location to calculate your annual production potential, cost savings, and CO₂ reduction.">Çatı alanınızı ve konumunuzu girerek yıllık üretim potansiyelinizi, maliyet tasarrufunuzu ve CO₂ azaltımını hesaplayın.</p>
+    </header>
+
+    <div class="main-grid">
+      <!-- Card 1 -->
+      <div class="card">
+        <p class="card-title" data-tr="Sistem Bilgileri" data-en="System Information">Sistem Bilgileri</p>
+        <div class="field">
+          <label data-tr="Şehir / Güneşlenme Bölgesi" data-en="City / Solar Region">Şehir / Güneşlenme Bölgesi</label>
+          <select id="city" onchange="calculate()">
+            <option value="7.5" data-tr="Antalya (Bölge 1 — En yüksek)" data-en="Antalya (Zone 1 — Highest)">Antalya (Bölge 1 — En yüksek)</option>
+            <option value="7.2" data-tr="İzmir" data-en="Izmir">İzmir</option>
+            <option value="6.8" data-tr="Konya" data-en="Konya">Konya</option>
+            <option value="6.5" data-tr="Ankara" data-en="Ankara">Ankara</option>
+            <option value="6.2" selected data-tr="Bursa" data-en="Bursa">Bursa</option>
+            <option value="5.8" data-tr="İstanbul" data-en="Istanbul">İstanbul</option>
+            <option value="5.5" data-tr="Trabzon (Bölge 7 — En düşük)" data-en="Trabzon (Zone 7 — Lowest)">Trabzon (Bölge 7 — En düşük)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-tr="Çatı Alanı (m²)" data-en="Roof Area (m²)">Çatı Alanı (m²)</label>
+          <div class="input-group">
+            <input type="number" id="area" value="30" min="5" max="500" oninput="calculate()">
+            <span class="input-unit">m²</span>
+          </div>
+        </div>
+        <div class="field">
+          <label data-tr="Kurulu Güç (kWp)" data-en="Installed Power (kWp)">Kurulu Güç (kWp)</label>
+          <div class="input-group">
+            <input type="number" id="power" value="5" min="1" max="100" step="0.5" oninput="calculate()">
+            <span class="input-unit">kWp</span>
+          </div>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-tr="Panel verimi" data-en="Panel efficiency">Panel verimi</span>
+          <input type="range" id="efficiency" min="15" max="23" value="20" step="1" oninput="syncEff(this.value); calculate()">
+          <span class="slider-val" id="eff-out">%20</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label" data-tr="Çatı eğimi" data-en="Roof tilt">Çatı eğimi</span>
+          <input type="range" id="tilt" min="0" max="45" value="30" step="5" oninput="syncTilt(this.value); calculate()">
+          <span class="slider-val" id="tilt-out">30°</span>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="card">
+        <p class="card-title" data-tr="Ekonomik Parametreler" data-en="Economic Parameters">Ekonomik Parametreler</p>
+        <div class="field">
+          <label data-tr="Elektrik Birim Fiyatı (₺/kWh)" data-en="Electricity Tariff (₺/kWh)">Elektrik Birim Fiyatı (₺/kWh)</label>
+          <div class="input-group">
+            <input type="number" id="tariff" value="4.5" min="1" max="20" step="0.1" oninput="calculate()">
+            <span class="input-unit">₺/kWh</span>
+          </div>
+        </div>
+        <div class="field">
+          <label data-tr="Sistem Maliyeti (₺)" data-en="System Cost (₺)">Sistem Maliyeti (₺)</label>
+          <div class="input-group">
+            <input type="number" id="cost" value="150000" min="10000" max="5000000" step="5000" oninput="calculate()">
+            <span class="input-unit">₺</span>
+          </div>
+        </div>
+        <div class="field">
+          <label data-tr="Yıllık Tüketim (kWh)" data-en="Annual Consumption (kWh)">Yıllık Tüketim (kWh)</label>
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
+            <button class="preset-btn" onclick="setConsumption(2400, this)" data-tr="Küçük daire" data-en="Small apt">Küçük daire<br><span>2.400</span></button>
+            <button class="preset-btn" onclick="setConsumption(4000, this)" data-tr="Aile evi" data-en="Family home">Aile evi<br><span>4.000</span></button>
+            <button class="preset-btn" onclick="setConsumption(8000, this)" data-tr="Büyük ev" data-en="Large home">Büyük ev<br><span>8.000</span></button>
+            <button class="preset-btn" onclick="setConsumption(15000, this)" data-tr="Küçük işyeri" data-en="Small office">Küçük işyeri<br><span>15.000</span></button>
+            <button class="preset-btn" onclick="setConsumption(40000, this)" data-tr="Orta işletme" data-en="Mid business">Orta işletme<br><span>40.000</span></button>
+          </div>
+          <div class="input-group">
+            <input type="number" id="consumption" value="4000" min="500" max="50000" step="100" oninput="clearPresets(); calculate()">
+            <span class="input-unit" data-tr="kWh/yıl" data-en="kWh/yr">kWh/yıl</span>
+          </div>
+        </div>
+        <div class="sun-vis">
+          <div class="sun-icon"></div>
+          <p class="sun-text">
+            <span data-tr="Panel başına ortalama" data-en="Average daily sun hours">Panel başına ortalama</span><br>
+            <strong id="daily-sun">6.2 saatlik</strong><br>
+            <span data-tr="güneşlenme bu bölgede hesaba katıldı." data-en="considered for this region.">güneşlenme bu bölgede hesaba katıldı.</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="results-card" id="results-section">
+        <p class="card-title" data-tr="Hesaplama Sonuçları" data-en="Calculation Results">Hesaplama Sonuçları</p>
+        <div class="results-grid">
+          <div class="metric">
+            <p class="metric-label" data-tr="Yıllık Üretim" data-en="Annual Production">Yıllık Üretim</p>
+            <p class="metric-value sun-color" id="res-production">—</p>
+            <p class="metric-unit" data-tr="kWh/yıl" data-en="kWh/yr">kWh/yıl</p>
+          </div>
+          <div class="metric">
+            <p class="metric-label" data-tr="Yıllık Tasarruf" data-en="Annual Saving">Yıllık Tasarruf</p>
+            <p class="metric-value sun-color" id="res-saving">—</p>
+            <p class="metric-unit">₺/yıl</p>
+          </div>
+          <div class="metric">
+            <p class="metric-label" data-tr="Geri Ödeme Süresi" data-en="Payback Period">Geri Ödeme Süresi</p>
+            <p class="metric-value" id="res-payback">—</p>
+            <p class="metric-unit" data-tr="yıl" data-en="years">yıl</p>
+          </div>
+          <div class="metric">
+            <p class="metric-label" data-tr="CO₂ Azaltımı" data-en="CO₂ Reduction">CO₂ Azaltımı</p>
+            <p class="metric-value teal-color" id="res-co2">—</p>
+            <p class="metric-unit">kg/yıl</p>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-label">
+            <span data-tr="Tüketimin karşılanma oranı" data-en="Share of consumption covered">Tüketimin karşılanma oranı</span>
+            <span id="pct-label">—%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill fill-sun" id="pct-bar" style="width:0%"></div></div>
+          <div class="progress-label">
+            <span data-tr="25 yıllık toplam tasarruf" data-en="25-year total savings">25 yıllık toplam tasarruf</span>
+            <span id="total-label">—</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill fill-teal" id="total-bar" style="width:0%"></div></div>
+          <div class="progress-label">
+            <span data-tr="Karbon ayak izi azaltımı (ağaç eşd.)" data-en="Carbon offset (tree equivalent)">Karbon ayak izi azaltımı (ağaç eşd.)</span>
+            <span id="tree-label">—</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill fill-green" id="tree-bar" style="width:0%"></div></div>
+        </div>
+
+        <div class="info-note">
+          <span data-tr="<strong>Formül:</strong> Yıllık Üretim (kWh) = Kurulu Güç (kWp) × Günlük Güneşlenme Saati × 365 × Sistem Verimi. Türkiye'de sistem verimi kayıpları (ısıl, kablo, inverter) ortalama <strong>%80</strong> ile hesaplanmaktadır. CO₂ katsayısı: <strong>0.432 kg/kWh</strong> (TEİAŞ 2023)." data-en="<strong>Formula:</strong> Annual Production (kWh) = Installed Power (kWp) × Daily Sun Hours × 365 × System Efficiency. System losses (thermal, cable, inverter) are estimated at <strong>80%</strong>. CO₂ factor: <strong>0.432 kg/kWh</strong> (TEIAS 2023)."><strong>Formül:</strong> Yıllık Üretim (kWh) = Kurulu Güç (kWp) × Günlük Güneşlenme Saati × 365 × Sistem Verimi. Türkiye'de sistem verimi kayıpları (ısıl, kablo, inverter) ortalama <strong>%80</strong> ile hesaplanmaktadır. CO₂ katsayısı: <strong>0.432 kg/kWh</strong> (TEİAŞ 2023).</span>
+        </div>
+
+        <button class="pdf-btn" onclick="exportPDF()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/></svg>
+          <span data-tr="Sonuçları PDF olarak indir" data-en="Download Results as PDF">Sonuçları PDF olarak indir</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MAP SECTION ===== -->
+  <div class="section" id="sec-map">
+    <header>
+      <div class="badge" data-tr="YEGM Verileri" data-en="YEGM Data">YEGM Verileri</div>
+      <h1 data-tr="Türkiye <span>Güneş Potansiyeli</span>" data-en="Turkey <span>Solar Potential</span>">Türkiye <span>Güneş Potansiyeli</span></h1>
+      <p class="subtitle" data-tr="Türkiye Güneş Enerjisi Potansiyeli Atlası (GEPA) verilerine göre illerin günlük ortalama güneşlenme süreleri." data-en="Average daily sunshine hours by province according to Turkey's Solar Energy Potential Atlas (GEPA).">Türkiye Güneş Enerjisi Potansiyeli Atlası (GEPA) verilerine göre illerin günlük ortalama güneşlenme süreleri.</p>
+    </header>
+
+    <div class="map-card">
+      <p class="card-title" data-tr="Günlük Ortalama Güneşlenme (saat/gün)" data-en="Average Daily Sunshine (hours/day)">Günlük Ortalama Güneşlenme (saat/gün)</p>
+      <div class="map-wrap">
+        <svg class="turkey-map" viewBox="0 0 1000 460" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1000" height="460" fill="#111916" rx="14"/>
+
+          <!-- Accurate Turkey outline -->
+          <path d="
+            M 108,168 L 112,160 L 120,152 L 132,148 L 140,140 L 148,132 L 158,128
+            L 166,122 L 172,116 L 180,112 L 192,110 L 200,106 L 210,104 L 218,108
+            L 224,112 L 228,118 L 234,120 L 242,118 L 248,112 L 256,108 L 264,106
+            L 272,104 L 280,102 L 290,100 L 300,98  L 312,96  L 322,94  L 332,93
+            L 342,92  L 354,91  L 364,90  L 376,90  L 388,89  L 398,88  L 410,87
+            L 422,86  L 434,85  L 446,84  L 458,83  L 470,82  L 482,81  L 494,81
+            L 506,80  L 518,79  L 530,79  L 542,78  L 554,77  L 566,76  L 578,75
+            L 590,74  L 602,73  L 614,72  L 626,71  L 638,70  L 650,69  L 662,68
+            L 672,67  L 682,67  L 692,68  L 700,70  L 708,73  L 716,77  L 722,82
+            L 728,88  L 732,94  L 736,100 L 738,107 L 740,114 L 740,121 L 738,128
+            L 734,134 L 728,140 L 720,145 L 712,150 L 706,156 L 702,163 L 700,170
+            L 700,177 L 702,183 L 706,188 L 712,192 L 718,196 L 722,202 L 724,208
+            L 724,215 L 720,222 L 714,228 L 706,233 L 696,237 L 684,240 L 672,242
+            L 660,244 L 648,248 L 638,254 L 630,260 L 622,266 L 614,270 L 604,273
+            L 594,274 L 584,273 L 574,270 L 566,265 L 560,258 L 556,250 L 552,242
+            L 546,236 L 538,232 L 528,230 L 518,230 L 508,232 L 498,236 L 488,240
+            L 478,244 L 468,246 L 458,246 L 448,244 L 438,240 L 428,236 L 418,234
+            L 408,234 L 398,236 L 388,240 L 378,244 L 368,247 L 358,248 L 348,247
+            L 338,244 L 328,240 L 318,238 L 308,238 L 298,240 L 288,244 L 278,248
+            L 268,250 L 258,250 L 248,248 L 238,244 L 228,240 L 218,238 L 208,238
+            L 198,240 L 188,244 L 178,248 L 168,250 L 158,250 L 148,247 L 140,242
+            L 134,236 L 130,228 L 128,220 L 128,212 L 130,204 L 134,196 L 138,188
+            L 140,180 L 138,173 L 132,167 L 124,163 L 116,162 L 108,168 Z
+          " fill="#223D2C" stroke="rgba(13,148,136,0.5)" stroke-width="1.5" stroke-linejoin="round"/>
+
+          <!-- European part (Trakya) -->
+          <path d="
+            M 108,168 L 116,162 L 124,163 L 128,168 L 126,174 L 120,178
+            L 114,180 L 108,177 L 106,171 Z
+          " fill="#223D2C" stroke="rgba(13,148,136,0.5)" stroke-width="1.5"/>
+
+          <!-- Bosphorus gap hint -->
+          <line x1="128" y1="162" x2="122" y2="170" stroke="#111916" stroke-width="3"/>
+
+          <!-- ── CITY MARKERS ── -->
+          <!-- İstanbul 5.8h -->
+          <g onclick="selectCity('5.8','İstanbul')" style="cursor:pointer">
+            <circle cx="152" cy="148" r="8" fill="#FCD34D" opacity="0.85"/>
+            <circle cx="152" cy="148" r="4" fill="#FCD34D"/>
+            <text x="164" y="144" font-family="DM Sans,sans-serif" font-size="11" fill="#86EFAC">İstanbul</text>
+            <text x="164" y="156" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="#FCD34D">5.8h</text>
+          </g>
+
+          <!-- Bursa 6.2h -->
+          <g onclick="selectCity('6.2','Bursa')" style="cursor:pointer">
+            <circle cx="192" cy="170" r="7" fill="#FCD34D" opacity="0.85"/>
+            <circle cx="192" cy="170" r="3.5" fill="#FCD34D"/>
+            <text x="203" y="166" font-family="DM Sans,sans-serif" font-size="11" fill="#86EFAC">Bursa</text>
+            <text x="203" y="178" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="#FCD34D">6.2h</text>
+          </g>
+
+          <!-- Ankara 6.5h -->
+          <g onclick="selectCity('6.5','Ankara')" style="cursor:pointer">
+            <circle cx="390" cy="148" r="8" fill="#FBBF24" opacity="0.9"/>
+            <circle cx="390" cy="148" r="4" fill="#FBBF24"/>
+            <text x="402" y="144" font-family="DM Sans,sans-serif" font-size="11" fill="#86EFAC">Ankara</text>
+            <text x="402" y="156" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="#FBBF24">6.5h</text>
+          </g>
+
+          <!-- İzmir 7.2h -->
+          <g onclick="selectCity('7.2','İzmir')" style="cursor:pointer">
+            <circle cx="176" cy="212" r="8" fill="#F59E0B" opacity="0.9"/>
+            <circle cx="176" cy="212" r="4" fill="#F59E0B"/>
+            <text x="188" y="208" font-family="DM Sans,sans-serif" font-size="11" fill="#86EFAC">İzmir</text>
+            <text x="188" y="220" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="#F59E0B">7.2h</text>
+          </g>
+
+          <!-- Konya 6.8h -->
+          <g onclick="selectCity('6.8','Konya')" style="cursor:pointer">
+            <circle cx="420" cy="196" r="7" fill="#FBBF24" opacity="0.9"/>
+            <circle cx="420" cy="196" r="3.5" fill="#FBBF24"/>
+            <text x="432" y="192" font-family="DM Sans,sans-serif" font-size="11" fill="#86EFAC">Konya</text>
+            <text x="432" y="204" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="#FBBF24">6.8h</text>
+          </g>
+
+          <!-- Antalya 7.5h -->
+          <g onclick="selectCity('7.5','Antalya')" style="cursor:pointer">
+            <circle cx="368" cy="252" r="9" fill="#F59E0B" opacity="0.95"/>
+            <circle cx="368" cy="252" r="4.5" fill="#F59E0B"/>
+            <text x="380" y="248" font-family="DM Sans,sans-serif" font-size="11" fill="#86EFAC">Antalya</text>
+            <text x="380" y="260" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="#F59E0B">7.5h</text>
+          </g>
+
+          <!-- Trabzon 5.5h -->
+          <g onclick="selectCity('5.5','Trabzon')" style="cursor:pointer">
+            <circle cx="596" cy="98" r="7" fill="#86EFAC" opacity="0.8"/>
+            <circle cx="596" cy="98" r="3.5" fill="#86EFAC"/>
+            <text x="608" y="94" font-family="DM Sans,sans-serif" font-size="11" fill="#86EFAC">Trabzon</text>
+            <text x="608" y="106" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="#86EFAC">5.5h</text>
+          </g>
+
+          <!-- Gaziantep 7.0h -->
+          <g onclick="selectCity('7.0','Gaziantep')" style="cursor:pointer">
+            <circle cx="554" cy="248" r="7" fill="#F59E0B" opacity="0.9"/>
+            <circle cx="554" cy="248" r="3.5" fill="#F59E0B"/>
+            <text x="566" y="244" font-family="DM Sans,sans-serif" font-size="11" fill="#86EFAC">Gaziantep</text>
+            <text x="566" y="256" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="#F59E0B">7.0h</text>
+          </g>
+
+          <!-- Diyarbakır 7.1h -->
+          <g onclick="selectCity('7.1','Diyarbakır')" style="cursor:pointer">
+            <circle cx="634" cy="208" r="7" fill="#F59E0B" opacity="0.9"/>
+            <circle cx="634" cy="208" r="3.5" fill="#F59E0B"/>
+            <text x="646" y="204" font-family="DM Sans,sans-serif" font-size="11" fill="#86EFAC">Diyarbakır</text>
+            <text x="646" y="216" font-family="Syne,sans-serif" font-size="10" font-weight="700" fill="#F59E0B">7.1h</text>
+          </g>
+
+          <!-- Deniz etiketleri -->
+          <text x="88" y="310" font-family="DM Sans,sans-serif" font-size="11" fill="rgba(134,239,172,0.3)" font-style="italic">Ege Denizi</text>
+          <text x="310" y="330" font-family="DM Sans,sans-serif" font-size="11" fill="rgba(134,239,172,0.3)" font-style="italic">Akdeniz</text>
+          <text x="440" y="68" font-family="DM Sans,sans-serif" font-size="11" fill="rgba(134,239,172,0.3)" font-style="italic">Karadeniz</text>
+          <text x="730" y="160" font-family="DM Sans,sans-serif" font-size="10" fill="rgba(134,239,172,0.25)" font-style="italic">İran</text>
+          <text x="730" y="250" font-family="DM Sans,sans-serif" font-size="10" fill="rgba(134,239,172,0.25)" font-style="italic">Irak / Suriye</text>
+          <text x="60" y="220" font-family="DM Sans,sans-serif" font-size="10" fill="rgba(134,239,172,0.25)" font-style="italic">Yunanistan</text>
+        </svg>
+      </div>
+
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#F59E0B"></div><span data-tr="7+ saat (çok yüksek)" data-en="7+ hours (very high)">7+ saat (çok yüksek)</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#FBBF24"></div><span data-tr="6–7 saat (yüksek)" data-en="6–7 hours (high)">6–7 saat (yüksek)</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#FCD34D"></div><span data-tr="5.5–6 saat (orta)" data-en="5.5–6 hours (medium)">5.5–6 saat (orta)</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#86EFAC"></div><span data-tr="5–5.5 saat (düşük)" data-en="5–5.5 hours (low)">5–5.5 saat (düşük)</span></div>
+      </div>
+
+      <div class="info-note" style="margin-top:1rem;">
+        <span data-tr="Haritadaki şehrlere tıklayarak o şehri hesaplayıcıda otomatik seçebilirsiniz. Veri kaynağı: YEGM Güneş Enerjisi Potansiyeli Atlası (GEPA)." data-en="Click on cities in the map to automatically select them in the calculator. Data source: YEGM Solar Energy Potential Atlas (GEPA).">Haritadaki şehrlere tıklayarak o şehri hesaplayıcıda otomatik seçebilirsiniz. Veri kaynağı: YEGM Güneş Enerjisi Potansiyeli Atlası (GEPA).</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ABOUT SECTION ===== -->
+  <div class="section" id="sec-about">
+    <div class="about-hero">
+      <div class="badge" data-tr="Proje & Geliştirici" data-en="Project & Developer">Proje & Geliştirici</div>
+      <h1 data-tr="Hakkımda" data-en="About Me">Hakkımda</h1>
+      <p class="subtitle" data-tr="Bu proje, yenilenebilir enerji alanındaki akademik ilgimi ve mühendislik becerilerimi bir araya getiriyor." data-en="This project combines my academic interest in renewable energy with my engineering skills.">Bu proje, yenilenebilir enerji alanındaki akademik ilgimi ve mühendislik becerilerimi bir araya getiriyor.</p>
+    </div>
+
+    <div class="about-grid">
+      <div class="about-card">
+        <p class="about-name" id="about-name">Sinan Deniz Karakuş</p>
+        <p class="about-role" data-tr="Elektrik Mühendisliği Öğrencisi" data-en="Electrical Engineering Student">Elektrik Mühendisliği Öğrencisi</p>
+        <p class="about-bio" data-tr="Yıldız Teknik Üniversitesi Elektrik Mühendisliği bölümünde öğrenciyim. Yenilenebilir enerji kaynakları üzerine araştırmalar yapıyorum. Bu hesaplayıcı, güneş enerjisi sistemlerine olan ilgimi akademik çalışmalarımla birleştirerek geliştirdiğim bir projedir." data-en="I am an Electrical Engineering student at Yıldız Technical University. I conduct research on renewable energy sources. This calculator is a project where I combined my interest in solar energy systems with my academic studies.">Yıldız Teknik Üniversitesi Elektrik Mühendisliği bölümünde öğrenciyim. Yenilenebilir enerji kaynakları üzerine araştırmalar yapıyorum. Bu hesaplayıcı, güneş enerjisi sistemlerine olan ilgimi akademik çalışmalarımla birleştirerek geliştirdiğim bir projedir.</p>
+        <div class="skill-tags">
+          <span class="skill-tag">Güneş Enerjisi</span>
+          <span class="skill-tag">Power Electronics</span>
+          <span class="skill-tag">PV Systems</span>
+          <span class="skill-tag">Python</span>
+          <span class="skill-tag">MATLAB</span>
+        </div>
+      </div>
+
+      <div class="about-card">
+        <p class="card-title" data-tr="İletişim" data-en="Contact">İletişim</p>
+        <a class="contact-link" href="mailto:guloskarakus@hotmail.com">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          guloskarakus@hotmail.com
+        </a>
+
+        <div style="margin-top:1.5rem;">
+          <p class="card-title" data-tr="Üniversite" data-en="University">Üniversite</p>
+          <p style="font-size:14px; color:var(--text-muted); margin-top:0.5rem;" data-tr="Yıldız Teknik Üniversitesi — Elektrik Mühendisliği" data-en="Yıldız Technical University — Electrical Engineering">Yıldız Teknik Üniversitesi — Elektrik Mühendisliği</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="about-card" style="margin-bottom:2rem;">
+      <p class="card-title" data-tr="Proje Hakkında" data-en="About the Project">Proje Hakkında</p>
+      <div class="project-item">
+        <p class="project-name" data-tr="Güneş Enerjisi Hesaplayıcı" data-en="Solar Energy Calculator">Güneş Enerjisi Hesaplayıcı</p>
+        <p class="project-desc" data-tr="YEGM güneş atlası verileri ve PV sistem mühendisliği formülleri kullanılarak geliştirilen bu araç; şehir bazlı güneşlenme süresi, çatı eğimi, panel verimi gibi parametrelerle yıllık enerji üretimini, ekonomik tasarrufu ve karbon azaltımını hesaplar." data-en="This tool uses YEGM solar atlas data and PV system engineering formulas. It calculates annual energy production, economic savings, and carbon reduction based on city-specific sun hours, roof tilt, and panel efficiency.">YEGM güneş atlası verileri ve PV sistem mühendisliği formülleri kullanılarak geliştirilen bu araç; şehir bazlı güneşlenme süresi, çatı eğimi, panel verimi gibi parametrelerle yıllık enerji üretimini, ekonomik tasarrufu ve karbon azaltımını hesaplar.</p>
+      </div>
+      <div class="project-item">
+        <p class="project-name" data-tr="Kullanılan Teknik Formüller" data-en="Technical Formulas Used">Kullanılan Teknik Formüller</p>
+        <p class="project-desc" data-tr="Enerji üretimi: P × H × 365 × η_sistem × f_eğim. CO₂ azaltımı: E_üretim × 0.432 kg/kWh (TEİAŞ emisyon katsayısı). Geri ödeme: Sistem maliyeti / Yıllık tasarruf." data-en="Energy production: P × H × 365 × η_system × f_tilt. CO₂ reduction: E_production × 0.432 kg/kWh (TEIAS emission factor). Payback: System cost / Annual savings.">Enerji üretimi: P × H × 365 × η_sistem × f_eğim. CO₂ azaltımı: E_üretim × 0.432 kg/kWh (TEİAŞ emisyon katsayısı). Geri ödeme: Sistem maliyeti / Yıllık tasarruf.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span data-tr="Güneş Enerjisi Hesaplayıcı — Elektrik &amp; Elektronik Mühendisliği Projesi · 2025" data-en="Solar Energy Calculator — Electrical &amp; Electronics Engineering Project · 2025">Güneş Enerjisi Hesaplayıcı — Elektrik &amp; Elektronik Mühendisliği Projesi · 2025</span><br>
+    <span data-tr="Veriler: YEGM Güneş Enerjisi Potansiyeli Atlası (GEPA) &amp; TEİAŞ emisyon katsayıları" data-en="Data: YEGM Solar Energy Potential Atlas (GEPA) &amp; TEIAS emission factors">Veriler: YEGM Güneş Enerjisi Potansiyeli Atlası (GEPA) &amp; TEİAŞ emisyon katsayıları</span>
+  </footer>
+</div>
+
+<script>
+  // ── LANGUAGE ──
+  let currentLang = 'tr';
+
+  function setLang(lang) {
+    currentLang = lang;
+    document.getElementById('btn-tr').classList.toggle('active', lang === 'tr');
+    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+    document.querySelectorAll('[data-tr]').forEach(el => {
+      const val = el.getAttribute('data-' + lang);
+      if (val !== null) el.innerHTML = val;
+    });
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      const val = btn.getAttribute('data-' + lang);
+      if (val) {
+        const span = btn.querySelector('span');
+        btn.childNodes[0].textContent = val + '\n';
+        if (span) btn.appendChild(span);
+      }
+    });
+    document.querySelectorAll('#city option').forEach(opt => {
+      const val = opt.getAttribute('data-' + lang);
+      if (val) opt.textContent = val;
+    });
+    // Update nav links
+    const navLabels = { tr: ['Hesaplayıcı','Harita','Hakkımda'], en: ['Calculator','Map','About'] };
+    ['nav-calc','nav-map','nav-about'].forEach((id,i) => {
+      document.getElementById(id).textContent = navLabels[lang][i];
+    });
+    syncEff(document.getElementById('efficiency').value);
+    calculate();
+  }
+
+  // ── SECTIONS ──
+  function showSection(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('sec-' + id).classList.add('active');
+    ['nav-calc','nav-map','nav-about'].forEach(n => document.getElementById(n).style.color = '');
+    document.getElementById('nav-' + id).style.color = 'var(--sun)';
+  }
+
+  // ── CALCULATOR ──
+  function syncEff(v) {
+    document.getElementById('eff-out').textContent = (currentLang === 'tr' ? '%' : '') + v + (currentLang === 'en' ? '%' : '');
+  }
+  function syncTilt(v) { document.getElementById('tilt-out').textContent = v + '°'; }
+
+  function tiltFactor(deg) { return 1 - (Math.abs(deg - 30) * 0.003); }
+
+  function fmt(n) { return Math.round(n).toLocaleString('tr-TR'); }
+
+  function calculate() {
+    const sunHours = parseFloat(document.getElementById('city').value);
+    const power = parseFloat(document.getElementById('power').value) || 0;
+    const tilt = parseInt(document.getElementById('tilt').value);
+    const tariff = parseFloat(document.getElementById('tariff').value) || 0;
+    const cost = parseFloat(document.getElementById('cost').value) || 1;
+    const consumption = parseFloat(document.getElementById('consumption').value) || 1;
+
+    const sunLabel = currentLang === 'tr' ? sunHours.toFixed(1) + ' saatlik' : sunHours.toFixed(1) + ' hours';
+    document.getElementById('daily-sun').textContent = sunLabel;
+
+    const panelEff = parseInt(document.getElementById('efficiency').value) / 100;
+    const effFactor = panelEff / 0.20; // normalize around 20% baseline
+    const annualProduction = power * sunHours * 365 * 0.80 * tiltFactor(tilt) * effFactor;
+    const annualSaving = annualProduction * tariff;
+    const payback = annualSaving > 0 ? cost / annualSaving : 0;
+    const co2 = annualProduction * 0.432;
+    const pct = Math.min((annualProduction / consumption) * 100, 100);
+    const total25 = annualSaving * 25;
+    const trees = Math.round(co2 / 21);
+
+    document.getElementById('res-production').textContent = fmt(annualProduction);
+    document.getElementById('res-saving').textContent = fmt(annualSaving);
+    document.getElementById('res-payback').textContent = payback > 0 ? payback.toFixed(1) : '—';
+    document.getElementById('res-co2').textContent = fmt(co2);
+
+    document.getElementById('pct-label').textContent = Math.round(pct) + '%';
+    document.getElementById('pct-bar').style.width = pct + '%';
+    document.getElementById('total-label').textContent = fmt(total25) + ' ₺';
+    document.getElementById('total-bar').style.width = Math.min((total25 / (cost * 5)) * 100, 100) + '%';
+    const treeWord = currentLang === 'tr' ? ' ağaç eşd.' : ' tree equiv.';
+    document.getElementById('tree-label').textContent = fmt(trees) + treeWord;
+    document.getElementById('tree-bar').style.width = Math.min((trees / 500) * 100, 100) + '%';
+  }
+
+  // ── MAP ──
+  function selectCity(val, name) {
+    const sel = document.getElementById('city');
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === val) { sel.selectedIndex = i; break; }
+    }
+    calculate();
+    showSection('calc');
+  }
+
+  // ── PDF EXPORT ──
+  async function exportPDF() {
+    const btn = document.querySelector('.pdf-btn');
+    btn.style.opacity = '0.5';
+    btn.style.pointerEvents = 'none';
+
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const isEN = currentLang === 'en';
+      const title = isEN ? 'Solar Energy Calculator — Results' : 'Güneş Enerjisi Hesaplayıcı — Sonuçlar';
+
+      // Header
+      doc.setFillColor(10, 15, 13);
+      doc.rect(0, 0, 210, 297, 'F');
+      doc.setFillColor(245, 158, 11);
+      doc.rect(0, 0, 210, 30, 'F');
+      doc.setTextColor(28, 10, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text('☀ SolarCalc', 15, 12);
+      doc.setFontSize(11);
+      doc.text(title, 15, 22);
+
+      // Date
+      doc.setTextColor(200, 200, 200);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(new Date().toLocaleDateString(isEN ? 'en-US' : 'tr-TR'), 170, 22);
+
+      // Inputs summary
+      doc.setTextColor(134, 239, 172);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      const inputTitle = isEN ? 'INPUT PARAMETERS' : 'GİRİŞ PARAMETRELERİ';
+      doc.text(inputTitle, 15, 42);
+
+      const cityEl = document.getElementById('city');
+      const cityName = cityEl.options[cityEl.selectedIndex].getAttribute('data-' + currentLang) || cityEl.options[cityEl.selectedIndex].text;
+      const power = document.getElementById('power').value;
+      const eff = document.getElementById('efficiency').value;
+      const tilt = document.getElementById('tilt').value;
+      const tariff = document.getElementById('tariff').value;
+      const cost = document.getElementById('cost').value;
+      const consumption = document.getElementById('consumption').value;
+
+      const inputs = isEN
+        ? [['City', cityName], ['Installed Power', power + ' kWp'], ['Panel Efficiency', eff + '%'], ['Roof Tilt', tilt + '°'], ['Electricity Tariff', '₺' + tariff + '/kWh'], ['System Cost', '₺' + Number(cost).toLocaleString()], ['Annual Consumption', Number(consumption).toLocaleString() + ' kWh/yr']]
+        : [['Şehir', cityName], ['Kurulu Güç', power + ' kWp'], ['Panel Verimi', '%' + eff], ['Çatı Eğimi', tilt + '°'], ['Elektrik Tarifesi', '₺' + tariff + '/kWh'], ['Sistem Maliyeti', '₺' + Number(cost).toLocaleString('tr-TR')], ['Yıllık Tüketim', Number(consumption).toLocaleString('tr-TR') + ' kWh/yıl']];
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(200, 230, 200);
+      doc.setFontSize(10);
+      inputs.forEach(([k, v], i) => {
+        const y = 52 + i * 9;
+        doc.setTextColor(134, 239, 172);
+        doc.text(k + ':', 15, y);
+        doc.setTextColor(240, 253, 244);
+        doc.text(v, 80, y);
+      });
+
+      // Divider
+      doc.setDrawColor(75, 122, 94);
+      doc.setLineWidth(0.3);
+      doc.line(15, 118, 195, 118);
+
+      // Results
+      doc.setFillColor(17, 25, 22);
+      doc.roundedRect(15, 123, 85, 50, 4, 4, 'F');
+      doc.roundedRect(110, 123, 85, 50, 4, 4, 'F');
+      doc.roundedRect(15, 180, 85, 50, 4, 4, 'F');
+      doc.roundedRect(110, 180, 85, 50, 4, 4, 'F');
+
+      const prod = document.getElementById('res-production').textContent;
+      const saving = document.getElementById('res-saving').textContent;
+      const payback = document.getElementById('res-payback').textContent;
+      const co2 = document.getElementById('res-co2').textContent;
+      const pct = document.getElementById('pct-label').textContent;
+      const total = document.getElementById('total-label').textContent;
+      const trees = document.getElementById('tree-label').textContent;
+
+      const metrics = isEN
+        ? [['Annual Production', prod, 'kWh/yr', 15], ['Annual Savings', saving, '₺/yr', 110], ['Payback Period', payback, 'years', 15], ['CO₂ Reduction', co2, 'kg/yr', 110]]
+        : [['Yıllık Üretim', prod, 'kWh/yıl', 15], ['Yıllık Tasarruf', saving, '₺/yıl', 110], ['Geri Ödeme', payback, 'yıl', 15], ['CO₂ Azaltımı', co2, 'kg/yıl', 110]];
+
+      const baseY = [128, 128, 185, 185];
+      metrics.forEach(([label, val, unit, x], i) => {
+        const y = baseY[i];
+        doc.setTextColor(75, 122, 94);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(label.toUpperCase(), x + 5, y + 8);
+        doc.setTextColor(245, 158, 11);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(20);
+        doc.text(val, x + 5, y + 28);
+        doc.setTextColor(134, 239, 172);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(unit, x + 5, y + 38);
+      });
+
+      // Summary stats
+      doc.setDrawColor(75, 122, 94);
+      doc.line(15, 238, 195, 238);
+      doc.setTextColor(134, 239, 172);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text(isEN ? 'ADDITIONAL METRICS' : 'EK METRİKLER', 15, 246);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(200, 230, 200);
+      doc.setFontSize(10);
+      const addLabel = isEN
+        ? [['Consumption coverage', pct], ['25-year total savings', total], ['Carbon offset', trees]]
+        : [['Tüketim karşılama oranı', pct], ['25 yıllık toplam tasarruf', total], ['Karbon ayak izi azaltımı', trees]];
+      addLabel.forEach(([k, v], i) => {
+        doc.setTextColor(134, 239, 172);
+        doc.text(k + ':', 15, 255 + i * 9);
+        doc.setTextColor(240, 253, 244);
+        doc.text(v, 100, 255 + i * 9);
+      });
+
+      // Formula note
+      doc.setFillColor(17, 38, 31);
+      doc.roundedRect(15, 282, 180, 10, 2, 2, 'F');
+      doc.setTextColor(75, 122, 94);
+      doc.setFontSize(7);
+      const formula = isEN ? 'Formula: P(kWp) × H(h/day) × 365 × 0.80 × tilt_factor | CO₂: 0.432 kg/kWh (TEIAS 2023)' : 'Formül: P(kWp) × H(saat/gün) × 365 × 0.80 × eğim_faktörü | CO₂: 0.432 kg/kWh (TEİAŞ 2023)';
+      doc.text(formula, 17, 288);
+
+      doc.save('solarcalc-rapor.pdf');
+    } catch(e) {
+      alert(currentLang === 'tr' ? 'PDF oluşturulamadı. Lütfen tekrar deneyin.' : 'Could not generate PDF. Please try again.');
+    }
+
+    btn.style.opacity = '';
+    btn.style.pointerEvents = '';
+  }
+
+  function setConsumption(val, btn) {
+    document.getElementById('consumption').value = val;
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    calculate();
+  }
+  function clearPresets() {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  }
+
+  // Init
+  calculate();
+  document.getElementById('nav-calc').style.color = 'var(--sun)';
+</script>
+</body>
+</html>
